@@ -16,6 +16,22 @@ from charts import create_expense_pie_chart, create_income_expense_bar_chart, cr
 from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_pdf_transactions
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
 
+import streamlit as st
+
+st.markdown("""
+    <style>
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+st.set_page_config(
+    page_title="Tracsy - Personal Budget Monitor",
+    page_icon="💰",
+    layout="wide"
+)
+
+
 
 # ─────────────────────────────────────────────────
 st.set_page_config(
