@@ -17,14 +17,6 @@ from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_p
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
 
 
-st.markdown("""
-    <style>
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    </style>
-""", unsafe_allow_html=True)
-
-
 # ─────────────────────────────────────────────────
 st.set_page_config(
     page_title="Personal Budget Monitor",
@@ -1239,3 +1231,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
