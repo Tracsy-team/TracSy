@@ -666,75 +666,6 @@ EXPENSE_CATEGORIES = ['Food','Transport','Shopping','Bills','Entertainment',
                       'Healthcare','Education','Other']
 
 
-# ═══════════════════════════════════════════════════════════
-#  LOGIN PAGE
-# ═══════════════════════════════════════════════════════════
-def login_page():
-    st.markdown("""
-        <div class="pbm-hero">
-            <div class="pbm-hero-icon">💰</div>
-            <div class="pbm-hero-title">Budget Monitor</div>
-            <div class="pbm-hero-sub">Smart financial management made simple</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    tab1, tab2 = st.tabs(["🔐 Login", "📝 Register"])
-
-    # ─── LOGIN ───
-    with tab1:
-        st.markdown("""
-            <div class="pbm-glass">
-                <div class="pbm-glass-title">Welcome Back</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        with st.form("login_form"):
-            username = st.text_input("👤 Username", placeholder="Enter your username", key="login_user")
-            password = st.text_input("🔒 Password", type="password", placeholder="Enter your password", key="login_pass")
-            submit   = st.form_submit_button("Sign In", use_container_width=True)
-
-            if submit:
-                if username and password:
-                    ok, msg, uid, uname = login_user(username, password)
-                    if ok:
-                        st.session_state.logged_in = True
-                        st.session_state.user_id   = uid
-                        st.session_state.username  = uname
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
-                else:
-                    st.warning("Please enter both username and password.")
-
-    # ─── REGISTER ───
-    with tab2:
-        st.markdown("""
-            <div class="pbm-glass">
-                <div class="pbm-glass-title">Create Account</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        with st.form("register_form"):
-            new_user = st.text_input("👤 Username", placeholder="Min 3 characters", key="reg_user")
-            new_pass = st.text_input("🔒 Password", type="password", placeholder="Min 6 characters", key="reg_pass")
-            conf_pass= st.text_input("🔒 Confirm Password", type="password", placeholder="Re-enter password", key="reg_conf")
-            submit   = st.form_submit_button("Create Account", use_container_width=True)
-
-            if submit:
-                if new_user and new_pass and conf_pass:
-                    if new_pass != conf_pass:
-                        st.error("Passwords do not match!")
-                    else:
-                        ok, msg = register_user(new_user, new_pass)
-                        if ok:
-                            st.success(msg)
-                            st.info("✅ You can now log in with your new credentials.")
-                        else:
-                            st.error(msg)
-                else:
-                    st.warning("Please fill in all fields.")
-
 
 # ═══════════════════════════════════════════════════════════
 #  MAIN APP
@@ -1239,13 +1170,10 @@ def main_app():
 # ENTRY POINT
 # ─────────────────────────────────────────────────
 def main():
-    if not st.session_state.logged_in:
-        login_page()
-    else:
-        main_app()
+    st.session_state.logged_in = True
+    main_app()
 
 if __name__ == "__main__":
 
     main()
-
 
