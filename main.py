@@ -17,11 +17,7 @@ from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_p
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
 from database import SessionLocal, User
 
-if "logged_in" not in st.session_state or not st.session_state.logged_in:
-    st.markdown("""
-        <meta http-equiv="refresh" content="0;url=http://localhost:8080" />
-    """, unsafe_allow_html=True)
-    st.stop()
+
 
 st.markdown("""
     <style>
@@ -1217,6 +1213,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
