@@ -746,13 +746,6 @@ def main_app():
             )
 
             st.stop()
-
-           
-            st.markdown("""
-              <script>
-                window.location.href = "http://localhost:8080";
-              </script>
-            """, unsafe_allow_html=True)
     # ─── DASHBOARD HEADER ───────────────────────────────────
     st.markdown(f"""
         <div class="pbm-dash-head">
@@ -1218,6 +1211,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
