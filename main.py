@@ -16,8 +16,7 @@ from charts import create_expense_pie_chart, create_income_expense_bar_chart, cr
 from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_pdf_transactions
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
 from database import SessionLocal, User
-if "user_id" not in st.session_state:
-    st.session_state.user_id = 1
+
 
 st.markdown("""
     <style>
@@ -1203,4 +1202,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
