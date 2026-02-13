@@ -706,12 +706,15 @@ def main_app():
     with st.sidebar:
         summary = get_transaction_summary(st.session_state.user_id)
         bal     = summary['balance']
-
         st.markdown(f"""
-            <div style="text-align:center; padding:.5rem 0 .75rem;">
-                <div style="font-size:.95rem; font-weight:700; color:#fff; letter-spacing:.01em;">👤{st.session_state.get('username', 'User')}</div>
-            </div>
-            <div class="pbm-divider"></div>
+        <div style="text-align:center; padding:.5rem 0 .75rem;">
+        <div style="font-size:.95rem; font-weight:700; color:#fff; letter-spacing:.01em;">
+        👤 {st.session_state.get('username', 'User')}
+        </div>
+        </div>
+        <div class="pbm-divider"></div>
+        """, unsafe_allow_html=True)
+
 
             <div class="pbm-balance">
                 <div class="pbm-balance-label">{"📈" if bal >= 0 else "📉"} Balance</div>
@@ -741,12 +744,13 @@ def main_app():
             st.rerun()
 
     # ─── DASHBOARD HEADER ───────────────────────────────────
-    st.markdown(f"""
-        <div class="pbm-dash-head">
-            <h2>Dashboard</h2>
-            <div>f"Welcome back, {st.session_state.get('username', 'User')} 👋")</div>
-        </div>
-    """, unsafe_allow_html=True)
+st.markdown(f"""
+    <div class="pbm-dash-head">
+        <h2>Dashboard</h2>
+        <div>Welcome back, {st.session_state.get('username', 'User')} 👋</div>
+    </div>
+""", unsafe_allow_html=True)
+
 
     # ─── TABS ───────────────────────────────────────────────
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
