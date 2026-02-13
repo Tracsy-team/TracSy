@@ -15,8 +15,9 @@ from crud import (add_transaction, get_all_transactions, get_total_by_type,
 from charts import create_expense_pie_chart, create_income_expense_bar_chart, create_summary_chart
 from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_pdf_transactions
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
-
-import streamlit as st
+from database import SessionLocal, User
+if "user_id" not in st.session_state:
+    st.session_state.user_id = 1
 
 st.markdown("""
     <style>
@@ -655,6 +656,27 @@ st.markdown("""
 # INIT
 # ─────────────────────────────────────────────────
 init_db()
+# Get username from URL
+params = st.query_params
+
+if "user" in params:
+    username = params["user"][0]  # 👈 IMPORTANT: Take first value
+
+    db = SessionLocal()
+
+    user = db.query(User).filter(User.username == username).first()
+
+    if not user:
+        user = User(username=username, password="123")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    st.session_state.user_id = user.id
+    st.session_state.username = username
+
+    db.close()
+
 
 if 'logged_in'  not in st.session_state: st.session_state.logged_in  = False
 if 'user_id'    not in st.session_state: st.session_state.user_id    = None
@@ -665,6 +687,14 @@ INCOME_CATEGORIES  = ['Salary','Freelance','Investment','Gift','Other']
 EXPENSE_CATEGORIES = ['Food','Transport','Shopping','Bills','Entertainment',
                       'Healthcare','Education','Other']
 
+from database import SessionLocal, User
+
+db = SessionLocal()
+if not db.query(User).filter(User.id == 1).first():
+    new_user = User(username="default_user", password="123")
+    db.add(new_user)
+    db.commit()
+db.close()
 
 
 # ═══════════════════════════════════════════════════════════
@@ -679,7 +709,7 @@ def main_app():
 
         st.markdown(f"""
             <div style="text-align:center; padding:.5rem 0 .75rem;">
-                <div style="font-size:.95rem; font-weight:700; color:#fff; letter-spacing:.01em;">👤 {st.session_state.username}</div>
+                <div style="font-size:.95rem; font-weight:700; color:#fff; letter-spacing:.01em;">👤{st.session_state.get('username', 'User')}</div>
             </div>
             <div class="pbm-divider"></div>
 
@@ -714,7 +744,7 @@ def main_app():
     st.markdown(f"""
         <div class="pbm-dash-head">
             <h2>Dashboard</h2>
-            <p>Welcome back, {st.session_state.username} 👋</p>
+            <div>f"Welcome back, {st.session_state.get('username', 'User')} 👋")</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -1174,6 +1204,5 @@ def main():
     main_app()
 
 if __name__ == "__main__":
-
     main()
 
