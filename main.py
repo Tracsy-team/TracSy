@@ -738,7 +738,7 @@ def main_app():
             st.rerun()
             st.markdown("""
               <script>
-                window.location.href = "http://localhost:5173";
+                window.location.href = "http://localhost:8080";
               </script>
             """, unsafe_allow_html=True)
     # ─── DASHBOARD HEADER ───────────────────────────────────
@@ -1206,6 +1206,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
