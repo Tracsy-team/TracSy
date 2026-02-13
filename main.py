@@ -659,7 +659,7 @@ init_db()
 params = st.query_params
 
 if "user" in params:
-    username = params["user"][0]  # 👈 IMPORTANT: Take first value
+    username = params["user"]  # 👈 IMPORTANT: Take first value
 
     db = SessionLocal()
 
@@ -1202,5 +1202,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
