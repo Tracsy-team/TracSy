@@ -13,11 +13,19 @@ import os
 Base = declarative_base()
 
 # Database file path
-DB_FILE = 'finance.db'
-DATABASE_URL = f'sqlite:///{DB_FILE}'
+# Database file path (Cloud-safe)
+if os.path.exists("/tmp"):
+    DB_FILE = "/tmp/finance.db"   # Streamlit Cloud writable folder
+else:
+    DB_FILE = "finance.db"        # Local development
 
+DATABASE_URL = f"sqlite:///{DB_FILE}"
 # Create database engine
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    connect_args={"check_same_thread": False}
+)
 
 # Create session factory
 SessionLocal = sessionmaker(bind=engine)
@@ -82,4 +90,5 @@ def get_db():
         return db
     except Exception as e:
         db.close()
+
         raise e
