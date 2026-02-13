@@ -17,6 +17,11 @@ from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_p
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
 from database import SessionLocal, User
 
+if "logged_in" not in st.session_state or not st.session_state.logged_in:
+    st.markdown("""
+        <meta http-equiv="refresh" content="0;url=http://localhost:8080" />
+    """, unsafe_allow_html=True)
+    st.stop()
 
 st.markdown("""
     <style>
@@ -729,23 +734,24 @@ def main_app():
             </div>
             <div class="pbm-divider"></div>
         """, unsafe_allow_html=True)
-
+        # ✅ Logout button INSIDE sidebar
         if st.button("🚪 Logout", use_container_width=True):
-            # Clear session values
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
 
-            # Redirect to login page (localhost:8080)
+            # Reset only login-related session values
+            st.session_state.logged_in = False
+            st.session_state.user_id = None
+            st.session_state.username = None
+
+            # Redirect to React login page
             st.markdown(
                 """
-                <script>
-                    window.parent.location.href = "http://localhost:8080";
-                </script>
+                <meta http-equiv="refresh" content="0;url=http://localhost:8080" />
                 """,
                 unsafe_allow_html=True
             )
 
             st.stop()
+
     # ─── DASHBOARD HEADER ───────────────────────────────────
     st.markdown(f"""
         <div class="pbm-dash-head">
@@ -1211,6 +1217,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
