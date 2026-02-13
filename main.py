@@ -735,7 +735,7 @@ def main_app():
             st.session_state.user_id   = None
             st.session_state.username  = None
             st.session_state.chat_history = []
-            st.rerun()
+           
             st.markdown("""
               <script>
                 window.location.href = "http://localhost:8080";
@@ -1206,6 +1206,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
