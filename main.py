@@ -741,7 +741,7 @@ def main_app():
     st.markdown(f"""
         <div class="pbm-dash-head">
             <h2>Dashboard</h2>
-            <div>Welcome back, {st.session_state.get('username', 'User')} 👋</div>
+            <div>Welcome back , {st.session_state.get('username', 'User')} 👋</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -1202,6 +1202,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
