@@ -706,11 +706,11 @@ def main_app():
     with st.sidebar:
         summary = get_transaction_summary(st.session_state.user_id)
         bal     = summary['balance']
-
- st.markdown(f"""
+        st.markdown(f"""
             <div style="text-align:center; padding:.5rem 0 .75rem;">
                 <div style="font-size:.95rem; font-weight:700; color:#fff; letter-spacing:.01em;">👤 {st.session_state.username}</div>
-            </div>            <div class="pbm-divider"></div>
+            </div>
+            <div class="pbm-divider"></div>
             <div class="pbm-balance">
                 <div class="pbm-balance-label">{"📈" if bal >= 0 else "📉"} Balance</div>
                 <div class="pbm-balance-value">₹{bal:,.2f}</div>
@@ -1203,8 +1203,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-s
-
-
 
