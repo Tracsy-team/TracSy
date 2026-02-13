@@ -17,7 +17,7 @@ from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_p
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
 from database import SessionLocal, User
 if "user_id" not in st.session_state:
-    st.session_state.user_id = 1
+    st.session_state.user_id = 10
 
 st.markdown("""
     <style>
@@ -1208,3 +1208,4 @@ if __name__ == "__main__":
     main()
 
 s
+
