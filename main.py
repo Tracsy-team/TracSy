@@ -705,7 +705,7 @@ def main_app():
     # ─── SIDEBAR ────────────────────────────────────────────
     with st.sidebar:
         summary = get_transaction_summary(st.session_state.user_id)
-        bal = summary['balance']
+        bal     = summary['balance']
 
         st.markdown(f"""
             <div style="text-align:center; padding:.5rem 0 .75rem;">
@@ -714,7 +714,6 @@ def main_app():
                 </div>
             </div>
             <div class="pbm-divider"></div>
-
             <div class="pbm-balance">
                 <div class="pbm-balance-label">{"📈" if bal >= 0 else "📉"} Balance</div>
                 <div class="pbm-balance-value">₹{bal:,.2f}</div>
@@ -724,36 +723,31 @@ def main_app():
                 <div class="pbm-metric-label">💰 Total Income</div>
                 <div class="pbm-metric-value">₹{summary['total_income']:,.2f}</div>
             </div>
-
             <div class="pbm-metric">
                 <div class="pbm-metric-label">💸 Total Expense</div>
                 <div class="pbm-metric-value">₹{summary['total_expense']:,.2f}</div>
             </div>
-
             <div class="pbm-metric">
                 <div class="pbm-metric-label">📊 Transactions</div>
                 <div class="pbm-metric-value">{summary['transaction_count']}</div>
             </div>
-
             <div class="pbm-divider"></div>
         """, unsafe_allow_html=True)
 
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.logged_in = False
-            st.session_state.user_id = None
-            st.session_state.username = None
+            st.session_state.user_id   = None
+            st.session_state.username  = None
             st.session_state.chat_history = []
             st.rerun()
 
-
     # ─── DASHBOARD HEADER ───────────────────────────────────
-st.markdown(f"""
-    <div class="pbm-dash-head">
-        <h2>Dashboard</h2>
-        <div>Welcome back, {st.session_state.get('username', 'User')} 👋</div>
-    </div>
-""", unsafe_allow_html=True)
-
+    st.markdown(f"""
+        <div class="pbm-dash-head">
+            <h2>Dashboard</h2>
+            <div>f"Welcome back, {st.session_state.get('username', 'User')} 👋")</div>
+        </div>
+    """, unsafe_allow_html=True)
 
     # ─── TABS ───────────────────────────────────────────────
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -1213,3 +1207,4 @@ def main():
 if __name__ == "__main__":
     main()
 
+s
