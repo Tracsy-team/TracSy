@@ -731,10 +731,22 @@ def main_app():
         """, unsafe_allow_html=True)
 
         if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.user_id   = None
-            st.session_state.username  = None
-            st.session_state.chat_history = []
+            # Clear session values
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+
+            # Redirect to login page (localhost:8080)
+            st.markdown(
+                """
+                <script>
+                    window.parent.location.href = "http://localhost:8080";
+                </script>
+                """,
+                unsafe_allow_html=True
+            )
+
+            st.stop()
+
            
             st.markdown("""
               <script>
@@ -1206,6 +1218,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
