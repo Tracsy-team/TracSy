@@ -736,7 +736,11 @@ def main_app():
             st.session_state.username  = None
             st.session_state.chat_history = []
             st.rerun()
-
+            st.markdown("""
+              <script>
+                window.location.href = "http://localhost:5173";
+              </script>
+            """, unsafe_allow_html=True)
     # ─── DASHBOARD HEADER ───────────────────────────────────
     st.markdown(f"""
         <div class="pbm-dash-head">
@@ -1202,6 +1206,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
