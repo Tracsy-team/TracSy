@@ -4,28 +4,53 @@ Uses Groq API for natural language financial advice
 """
 
 import os
+import streamlit as st
 from groq import Groq
 
-# Initialize Groq client
+# Load .env file when running locally
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed — fine on Streamlit Cloud
+
+
 def get_groq_client():
-    """Initialize Groq client with API key from environment"""
+    """
+    Initialize Groq client.
+    Priority:
+      1. Environment variable  (local .env file)
+      2. Streamlit secrets     (Streamlit Cloud → Settings → Secrets)
+    """
     api_key = os.getenv("GROQ_API_KEY")
+
     if not api_key:
-        raise ValueError("GROQ_API_KEY not found in environment variables")
+        try:
+            api_key = st.secrets.get("GROQ_API_KEY")
+        except Exception:
+            pass
+
+    if not api_key:
+        raise ValueError(
+            "GROQ_API_KEY not found. "
+            "Local: add it to a .env file. "
+            "Cloud: add it in Streamlit Cloud → Settings → Secrets."
+        )
+
     return Groq(api_key=api_key)
 
 
 def get_financial_context(user_id, get_summary_func, get_total_func, get_expense_cat_func, get_transactions_func):
     """
     Gather read-only financial data for the chatbot context
-    
+
     Args:
         user_id: Current user's ID
         get_summary_func: Function to get transaction summary
         get_total_func: Function to get totals by type
         get_expense_cat_func: Function to get expense breakdown
         get_transactions_func: Function to get all transactions
-    
+
     Returns:
         dict: Financial context data
     """
@@ -35,7 +60,7 @@ def get_financial_context(user_id, get_summary_func, get_total_func, get_expense
         total_expense = get_total_func(user_id, 'Expense')
         expense_by_category = get_expense_cat_func(user_id)
         transactions = get_transactions_func(user_id)
-        
+
         # Get recent transactions (last 10)
         recent_txns = []
         for t in transactions[:10]:
@@ -46,13 +71,13 @@ def get_financial_context(user_id, get_summary_func, get_total_func, get_expense
                 'amount': float(t.amount),
                 'description': t.description if t.description else 'N/A'
             })
-        
+
         # Format expense breakdown
         expense_breakdown = []
         if expense_by_category:
             for cat, amt in expense_by_category.items():
                 expense_breakdown.append({'category': cat, 'amount': float(amt)})
-        
+
         context = {
             'total_income': float(total_income),
             'total_expense': float(total_expense),
@@ -61,7 +86,7 @@ def get_financial_context(user_id, get_summary_func, get_total_func, get_expense
             'expense_breakdown': expense_breakdown,
             'recent_transactions': recent_txns
         }
-        
+
         return context
     except Exception as e:
         print(f"Error gathering financial context: {e}")
@@ -72,7 +97,7 @@ def format_context_for_prompt(context):
     """Format financial context into a readable string for the AI"""
     if not context:
         return "No financial data available."
-    
+
     lines = [
         f"📊 FINANCIAL SUMMARY:",
         f"• Total Income: ₹{context['total_income']:,.2f}",
@@ -81,42 +106,41 @@ def format_context_for_prompt(context):
         f"• Total Transactions: {context['transaction_count']}",
         ""
     ]
-    
+
     if context['expense_breakdown']:
         lines.append("💸 EXPENSE BREAKDOWN:")
         sorted_expenses = sorted(context['expense_breakdown'], key=lambda x: x['amount'], reverse=True)
         for item in sorted_expenses[:5]:  # Top 5 categories
             lines.append(f"  - {item['category']}: ₹{item['amount']:,.2f}")
         lines.append("")
-    
+
     if context['recent_transactions']:
         lines.append("📜 RECENT TRANSACTIONS (Last 10):")
         for txn in context['recent_transactions'][:5]:  # Show 5 most recent
             emoji = "🟢" if txn['type'] == 'Income' else "🔴"
             lines.append(f"  {emoji} {txn['date']} | {txn['category']}: ₹{txn['amount']:,.2f}")
         lines.append("")
-    
+
     return "\n".join(lines)
 
 
 def get_chatbot_response(user_message, context, conversation_history=None):
     """
     Get AI response using Groq API
-    
+
     Args:
         user_message: User's question/message
         context: Financial context dictionary
         conversation_history: List of previous messages (optional)
-    
+
     Returns:
         str: AI assistant's response
     """
     try:
         client = get_groq_client()
-        
-        # Build system prompt with financial context
+
         context_str = format_context_for_prompt(context)
-        
+
         system_prompt = f"""You are a friendly, supportive AI financial advisor for a personal budget monitoring app.
 
 **YOUR DATA (READ-ONLY):**
@@ -150,32 +174,34 @@ def get_chatbot_response(user_message, context, conversation_history=None):
 
 Remember: You're helping students/freshers manage money better, not giving professional financial advice."""
 
-        # Build messages array
         messages = [{"role": "system", "content": system_prompt}]
-        
-        # Add conversation history if provided
+
         if conversation_history:
             messages.extend(conversation_history)
-        
-        # Add current user message
+
         messages.append({"role": "user", "content": user_message})
-        
-        # Call Groq API
+
         chat_completion = client.chat.completions.create(
             messages=messages,
-            model="llama-3.3-70b-versatile",  # Fast and capable model
+            model="llama-3.3-70b-versatile",
             temperature=0.7,
             max_tokens=500,
             top_p=0.9
         )
-        
-        response = chat_completion.choices[0].message.content
-        return response
-        
+
+        return chat_completion.choices[0].message.content
+
     except Exception as e:
         error_msg = str(e)
-        if "api_key" in error_msg.lower():
-            return "❌ **Groq API Key Error**: Please set your GROQ_API_KEY environment variable. Get your free key at https://console.groq.com/keys"
+        if "api_key" in error_msg.lower() or "groq_api_key" in error_msg.lower():
+            return (
+                "❌ **Groq API Key Missing**\n\n"
+                "**Local:** Create a `.env` file in your project root and add:\n"
+                "```\nGROQ_API_KEY=your_key_here\n```\n\n"
+                "**Streamlit Cloud:** Go to Settings → Secrets and add:\n"
+                "```\nGROQ_API_KEY = \"your_key_here\"\n```\n\n"
+                "Get your free key at https://console.groq.com/keys"
+            )
         elif "rate" in error_msg.lower() or "limit" in error_msg.lower():
             return "⏳ **Rate Limit**: Too many requests. Please wait a moment and try again."
         else:
@@ -186,11 +212,11 @@ def get_quick_insight(context):
     """Generate a quick financial insight without user input"""
     if not context or context['transaction_count'] == 0:
         return "👋 Start adding transactions to get personalized financial insights!"
-    
+
     try:
         client = get_groq_client()
         context_str = format_context_for_prompt(context)
-        
+
         prompt = f"""Based on this financial data, give ONE brief, actionable insight (2-3 sentences max):
 
 {context_str}
@@ -206,11 +232,11 @@ Focus on the most important observation and one specific tip."""
             temperature=0.7,
             max_tokens=150
         )
-        
+
         return "💡 " + chat_completion.choices[0].message.content
-        
-    except:
-        # Fallback insight
+
+    except Exception:
+        # Fallback insight — never crashes the UI
         if context['balance'] < 0:
             return "💡 Your expenses exceed income. Try identifying your top 2 expense categories and reducing them by 10%."
         elif context['expense_breakdown']:
