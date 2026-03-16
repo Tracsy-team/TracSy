@@ -1,10 +1,12 @@
 """
 main.py  —  Personal Budget Monitor (TracSy)
 Premium UI with glassmorphism, animations, micro-interactions.
-Auth handler integrated: reads ?action=, ?user=, ?pw= from React login page (localhost:8081).
-Logout redirects to landing page (localhost:5173).
+Auth handler integrated: reads ?action=, ?user=, ?pw= from React login page (localhost).
+On cloud (Streamlit Share): uses native Streamlit login form — no localhost redirects.
+Logout redirects to landing page on localhost, or reruns on cloud.
 """
 
+import os
 import streamlit as st
 import hashlib
 from datetime import date
@@ -17,6 +19,15 @@ from crud import (add_transaction, get_all_transactions, get_total_by_type,
 from charts import create_expense_pie_chart, create_income_expense_bar_chart, create_summary_chart
 from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_pdf_transactions
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
+
+# ─────────────────────────────────────────────────
+# DETECT ENVIRONMENT
+# Streamlit Cloud sets HOME=/home/appuser
+# ─────────────────────────────────────────────────
+IS_CLOUD = (
+    os.getenv("STREAMLIT_SHARING_MODE") == "streamlit"
+    or os.getenv("HOME") == "/home/appuser"
+)
 
 # ─────────────────────────────────────────────────
 # PAGE CONFIG  (must be first Streamlit call)
@@ -321,7 +332,8 @@ if "chat_history"     not in st.session_state: st.session_state.chat_history = [
 
 # ═══════════════════════════════════════════════════════════
 #  AUTH HANDLER
-#  Reads ?action=, ?user=, ?pw= sent by LoginPage (localhost:8081)
+#  Reads ?action=, ?user=, ?pw= sent by LoginPage (localhost)
+#  Only used on localhost — cloud uses show_login_form() instead
 # ═══════════════════════════════════════════════════════════
 def _handle_url_auth():
     # Already logged in — nothing to do
@@ -362,17 +374,22 @@ def _handle_url_auth():
                 st.error("Username already exists. Please choose another.")
                 return
 
-            new_user = User(username=username, password=pw_hash)
-            db.add(new_user)
+            new_user_obj = User(username=username, password=pw_hash)
+            db.add(new_user_obj)
             db.commit()
 
-            # Redirect back to login page (8081) after 2 seconds
-            st.markdown(
-                '<meta http-equiv="refresh" content="2;url=http://localhost:8081" />',
-                unsafe_allow_html=True
-            )
-            st.success("✅ Account created! Redirecting you to sign in...")
-            st.stop()
+            if IS_CLOUD:
+                # On cloud: no localhost to redirect to — just rerun to show login form
+                st.success("✅ Account created! Please sign in below.")
+                st.rerun()
+            else:
+                # On localhost: redirect back to the React login page after 2 seconds
+                st.markdown(
+                    '<meta http-equiv="refresh" content="2;url=http://localhost:8080" />',
+                    unsafe_allow_html=True
+                )
+                st.success("✅ Account created! Redirecting you to sign in...")
+                st.stop()
 
     except Exception as e:
         db.rollback()
@@ -381,7 +398,76 @@ def _handle_url_auth():
         db.close()
 
 
-_handle_url_auth()
+# ═══════════════════════════════════════════════════════════
+#  CLOUD NATIVE LOGIN FORM
+#  Shown on Streamlit Cloud instead of the React login page
+# ═══════════════════════════════════════════════════════════
+def show_login_form():
+    st.markdown("""
+        <div class="pbm-hero">
+            <div class="pbm-hero-icon">💰</div>
+            <div class="pbm-hero-title">TracSy</div>
+            <div class="pbm-hero-sub">Take control of your money. Stay on budget.</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    with col2:
+        tab_login, tab_reg = st.tabs(["🔑 Sign In", "✨ Create Account"])
+
+        with tab_login:
+            login_user_input = st.text_input("Username", key="login_user")
+            login_pass_input = st.text_input("Password", type="password", key="login_pass")
+            if st.button("Enter to TracSy", use_container_width=True, key="login_btn"):
+                if login_user_input and login_pass_input:
+                    pw_hash = hashlib.sha256(login_pass_input.encode()).hexdigest()
+                    db = SessionLocal()
+                    try:
+                        user = db.query(User).filter(
+                            User.username == login_user_input,
+                            User.password == pw_hash
+                        ).first()
+                        if user:
+                            st.session_state.logged_in = True
+                            st.session_state.user_id   = user.id
+                            st.session_state.username  = user.username
+                            st.rerun()
+                        else:
+                            st.error("Incorrect username or password.")
+                    except Exception as e:
+                        st.error(f"Login error: {e}")
+                    finally:
+                        db.close()
+                else:
+                    st.warning("Please fill in all fields.")
+
+        with tab_reg:
+            reg_user_input = st.text_input("Username", key="reg_user")
+            reg_pass_input = st.text_input("Password", type="password", key="reg_pass")
+            reg_conf_input = st.text_input("Confirm Password", type="password", key="reg_conf")
+            if st.button("Create Account", use_container_width=True, key="reg_btn"):
+                if not reg_user_input or not reg_pass_input:
+                    st.warning("Please fill in all fields.")
+                elif reg_pass_input != reg_conf_input:
+                    st.error("Passwords do not match.")
+                elif len(reg_pass_input) < 6:
+                    st.error("Password must be at least 6 characters.")
+                else:
+                    pw_hash = hashlib.sha256(reg_pass_input.encode()).hexdigest()
+                    db = SessionLocal()
+                    try:
+                        existing = db.query(User).filter(User.username == reg_user_input).first()
+                        if existing:
+                            st.error("Username already taken. Please choose another.")
+                        else:
+                            db.add(User(username=reg_user_input, password=pw_hash))
+                            db.commit()
+                            st.success("✅ Account created! Switch to Sign In to log in.")
+                    except Exception as e:
+                        db.rollback()
+                        st.error(f"Registration error: {e}")
+                    finally:
+                        db.close()
 
 
 # ─────────────────────────────────────────────────
@@ -425,15 +511,20 @@ def main_app():
         """, unsafe_allow_html=True)
 
         if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.user_id   = None
-            st.session_state.username  = None
-            # Redirect to landing page (5173)
-            st.markdown(
-                '<meta http-equiv="refresh" content="0;url=http://localhost:5173" />',
-                unsafe_allow_html=True
-            )
-            st.stop()
+            st.session_state.logged_in    = False
+            st.session_state.user_id      = None
+            st.session_state.username     = None
+            st.session_state.chat_history = []
+            if IS_CLOUD:
+                # On cloud: just rerun — the native login form will show
+                st.rerun()
+            else:
+                # On localhost: redirect to landing page
+                st.markdown(
+                    '<meta http-equiv="refresh" content="0;url=http://localhost:5173" />',
+                    unsafe_allow_html=True
+                )
+                st.stop()
 
     st.markdown(f"""
         <div class="pbm-dash-head">
@@ -849,15 +940,23 @@ def main_app():
 def main():
     if st.session_state.get("logged_in") and st.session_state.get("user_id"):
         main_app()
+    elif IS_CLOUD:
+        # On cloud: handle any stray URL params first, then show native login form
+        _handle_url_auth()
+        if not st.session_state.get("logged_in"):
+            show_login_form()
     else:
-        st.markdown("""
-            <div class="pbm-hero">
-                <div class="pbm-hero-icon">💰</div>
-                <div class="pbm-hero-title">TracSy</div>
-                <div class="pbm-hero-sub">Please log in from the TracSy login page.</div>
-            </div>
-        """, unsafe_allow_html=True)
-        st.info("👉 Visit the TracSy login page to sign in or create an account.")
+        # On localhost: URL params auth from React login page
+        _handle_url_auth()
+        if not st.session_state.get("logged_in"):
+            st.markdown("""
+                <div class="pbm-hero">
+                    <div class="pbm-hero-icon">💰</div>
+                    <div class="pbm-hero-title">TracSy</div>
+                    <div class="pbm-hero-sub">Please log in from the TracSy login page.</div>
+                </div>
+            """, unsafe_allow_html=True)
+            st.info("👉 Visit the TracSy login page to sign in or create an account.")
 
 
 if __name__ == "__main__":
