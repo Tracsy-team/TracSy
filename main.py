@@ -638,20 +638,19 @@ def _handle_url_auth():
         return
 
     params = st.query_params
-
-    action = params.get("action")
+    action   = params.get("action")
     username = params.get("user")
-    pw_hash = params.get("pw")
+    pw_hash  = params.get("pw")
 
     if not action or not username or not pw_hash:
         return
 
+    # Clear params immediately so they don't re-trigger on reload
+    st.query_params.clear()
+
     db = SessionLocal()
-
     try:
-
         if action == "login":
-
             user = db.query(User).filter(
                 User.username == username,
                 User.password == pw_hash
@@ -661,34 +660,33 @@ def _handle_url_auth():
                 st.error("Incorrect username or password.")
                 return
 
-            # LOGIN SUCCESS
             st.session_state.logged_in = True
-            st.session_state.user_id = user.id
-            st.session_state.username = user.username
-
-            # NOW clear params
-            st.query_params.clear()
-
+            st.session_state.user_id   = user.id
+            st.session_state.username  = user.username
             st.rerun()
 
         elif action == "register":
-
             existing = db.query(User).filter(User.username == username).first()
-
             if existing:
-                st.error("Username already exists.")
+                st.error("Username already exists. Please choose another.")
                 return
 
             new_user = User(username=username, password=pw_hash)
             db.add(new_user)
             db.commit()
-
-            st.success("Account created. Please login.")
+            # Redirect back to React login page after 2 seconds
+            st.markdown(
+                '<meta http-equiv="refresh" content="2;url=http://localhost:8080" />',
+                unsafe_allow_html=True
+            )
+            st.success("✅ Account created! Redirecting you to sign in...")
             st.stop()
 
+    except Exception as e:
+        db.rollback()
+        st.error(f"Auth error: {e}")
     finally:
         db.close()
-
 
 # ─────────────────────────────────────────────────
 # SESSION STATE DEFAULTS
@@ -1164,7 +1162,12 @@ def main_app():
                 if st.button("🗑️ Clear Chat History", use_container_width=True):
                     st.session_state.chat_history = []
                     st.rerun()
-
+# Paste this temporarily at the bottom of main_app() to verify
+if st.checkbox("🔧 Debug: show users"):
+    db = SessionLocal()
+    users = db.query(User).all()
+    st.write([{"id": u.id, "username": u.username} for u in users])
+    db.close()
 
 # ─────────────────────────────────────────────────
 # ENTRY POINT
