@@ -1,8 +1,7 @@
 """
 main.py  —  Personal Budget Monitor (TracSy)
 Premium UI with glassmorphism, animations, micro-interactions.
-Auth handler integrated: reads ?action=, ?user=, ?pw= from React login page (localhost:8081).
-Logout redirects to landing page (localhost:5173).
+Auth handler integrated: reads ?action=, ?user=, ?pw= from React landing page.
 """
 
 import streamlit as st
@@ -18,6 +17,8 @@ from charts import create_expense_pie_chart, create_income_expense_bar_chart, cr
 from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_pdf_transactions
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
 
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 # ─────────────────────────────────────────────────
 # PAGE CONFIG  (must be first Streamlit call)
 # ─────────────────────────────────────────────────
@@ -40,6 +41,9 @@ st.markdown("""
 # ═══════════════════════════════════════════════════════════
 st.markdown("""
 <style>
+/* ═══════════════════════════════════════════════════
+   DESIGN TOKENS
+   ═══════════════════════════════════════════════════ */
 :root {
     --clr-bg-0:       #0f0d1a;
     --clr-bg-1:       #16142a;
@@ -63,6 +67,10 @@ st.markdown("""
     --ease:           cubic-bezier(.4,0,.2,1);
     --ease-spring:    cubic-bezier(.34,1.56,.64,1);
 }
+
+/* ═══════════════════════════════════════════════════
+   APP ROOT — multi-layer deep background
+   ═══════════════════════════════════════════════════ */
 .stApp {
     background: var(--clr-bg-0) !important;
     min-height: 100vh;
@@ -79,11 +87,16 @@ st.markdown("""
     z-index: 0;
 }
 .stApp > * { position: relative; z-index: 1; }
+
+/* ═══════════════════════════════════════════════════
+   SIDEBAR
+   ═══════════════════════════════════════════════════ */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, var(--clr-bg-1) 0%, #1a1535 100%) !important;
     border-right: 1px solid var(--clr-border) !important;
 }
 [data-testid="stSidebar"] * { color: var(--clr-text-1) !important; }
+
 [data-testid="stSidebar"] .stButton > button {
     background: var(--clr-surface) !important;
     border: 1px solid var(--clr-border-h) !important;
@@ -100,6 +113,10 @@ st.markdown("""
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(0,0,0,.3);
 }
+
+/* ═══════════════════════════════════════════════════
+   GLASSMORPHISM CARD  (.pbm-card)
+   ═══════════════════════════════════════════════════ */
 .pbm-card {
     background: var(--clr-surface);
     backdrop-filter: blur(20px) saturate(140%);
@@ -108,96 +125,230 @@ st.markdown("""
     border-radius: var(--radius-xl);
     padding: 1.75rem 2rem;
     margin-bottom: 1.25rem;
-    box-shadow: 0 1px 2px rgba(0,0,0,.15), 0 8px 32px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.06);
+    box-shadow:
+        0 1px 2px  rgba(0,0,0,.15),
+        0 8px 32px rgba(0,0,0,.2),
+        inset 0 1px 0 rgba(255,255,255,.06);
     animation: pbmFadeUp .45s var(--ease) backwards;
     transition: border-color .3s var(--ease), box-shadow .3s var(--ease);
 }
 .pbm-card:hover {
     border-color: var(--clr-border-h);
-    box-shadow: 0 1px 2px rgba(0,0,0,.15), 0 12px 40px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08);
+    box-shadow:
+        0 1px 2px  rgba(0,0,0,.15),
+        0 12px 40px rgba(0,0,0,.25),
+        inset 0 1px 0 rgba(255,255,255,.08);
 }
-.pbm-hero { text-align: center; padding: 3.5rem 1rem 1.25rem; }
+
+/* ═══════════════════════════════════════════════════
+   HERO  (login page)
+   ═══════════════════════════════════════════════════ */
+.pbm-hero {
+    text-align: center;
+    padding: 3.5rem 1rem 1.25rem;
+}
 .pbm-hero-icon {
-    font-size: 3.8rem; display: inline-block;
+    font-size: 3.8rem;
+    display: inline-block;
     animation: pbmFloat 3.4s ease-in-out infinite;
     filter: drop-shadow(0 6px 18px rgba(99,91,255,.3));
 }
 .pbm-hero-title {
-    font-size: clamp(2.1rem, 5vw, 3rem); font-weight: 800;
-    color: var(--clr-text-1); letter-spacing: -.04em; margin: .7rem 0 .25rem;
+    font-size: clamp(2.1rem, 5vw, 3rem);
+    font-weight: 800;
+    color: var(--clr-text-1);
+    letter-spacing: -.04em;
+    margin: .7rem 0 .25rem;
     background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,.7));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
-.pbm-hero-sub { font-size: .98rem; color: var(--clr-text-3); font-weight: 400; letter-spacing: .01em; }
+.pbm-hero-sub {
+    font-size: .98rem;
+    color: var(--clr-text-3);
+    font-weight: 400;
+    letter-spacing: .01em;
+}
+
+/* ═══════════════════════════════════════════════════
+   GLASS PANEL  (login forms)
+   ═══════════════════════════════════════════════════ */
 .pbm-glass {
     background: rgba(255,255,255,.06);
     backdrop-filter: blur(24px) saturate(160%);
     -webkit-backdrop-filter: blur(24px) saturate(160%);
     border: 1px solid rgba(255,255,255,.12);
     border-radius: var(--radius-xl);
-    padding: 2rem 2.25rem 1.5rem; max-width: 440px; margin: 1.25rem auto 0;
-    box-shadow: 0 20px 48px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.07);
+    padding: 2rem 2.25rem 1.5rem;
+    max-width: 440px;
+    margin: 1.25rem auto 0;
+    box-shadow:
+        0 20px 48px rgba(0,0,0,.3),
+        inset 0 1px 0 rgba(255,255,255,.07);
     animation: pbmFadeUp .55s var(--ease-spring) .15s backwards;
 }
-.pbm-glass-title { font-size: 1.2rem; font-weight: 700; color: var(--clr-text-1); text-align: center; margin-bottom: 1.5rem; letter-spacing: -.01em; }
+.pbm-glass-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--clr-text-1);
+    text-align: center;
+    margin-bottom: 1.5rem;
+    letter-spacing: -.01em;
+}
+
+/* ═══════════════════════════════════════════════════
+   SECTION HEADER  (inside tabs)
+   ═══════════════════════════════════════════════════ */
 .pbm-section-head { margin-bottom: .25rem; }
-.pbm-section-head h3 { font-size: 1.3rem; font-weight: 700; color: var(--clr-text-1); margin: 0 0 .3rem; letter-spacing: -.02em; }
+.pbm-section-head h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--clr-text-1);
+    margin: 0 0 .3rem;
+    letter-spacing: -.02em;
+}
 .pbm-section-head h3 .pbm-accent-line {
-    display: block; width: 36px; height: 3px;
+    display: block;
+    width: 36px; height: 3px;
     background: linear-gradient(90deg, var(--clr-accent), #00d4ff);
-    border-radius: 99px; margin-top: .45rem;
+    border-radius: 99px;
+    margin-top: .45rem;
     animation: pbmGrowLine .5s var(--ease-spring) .1s backwards;
 }
-.pbm-section-head p { font-size: .82rem; color: var(--clr-text-3); margin: .15rem 0 0; letter-spacing: .01em; }
+.pbm-section-head p {
+    font-size: .82rem;
+    color: var(--clr-text-3);
+    margin: .15rem 0 0;
+    letter-spacing: .01em;
+}
+
+/* ═══════════════════════════════════════════════════
+   SIDEBAR METRIC CARD
+   ═══════════════════════════════════════════════════ */
 .pbm-metric {
-    background: var(--clr-surface); border: 1px solid var(--clr-border);
-    border-radius: var(--radius-lg); padding: .95rem 1.2rem; margin-bottom: .5rem;
+    background: var(--clr-surface);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius-lg);
+    padding: .95rem 1.2rem;
+    margin-bottom: .5rem;
     transition: all .28s var(--ease);
 }
 .pbm-metric:hover {
-    background: var(--clr-surface-h); border-color: var(--clr-border-h);
-    transform: translateX(4px); box-shadow: 0 4px 16px rgba(0,0,0,.25);
+    background: var(--clr-surface-h);
+    border-color: var(--clr-border-h);
+    transform: translateX(4px);
+    box-shadow: 0 4px 16px rgba(0,0,0,.25);
 }
-.pbm-metric-label { font-size: .7rem; font-weight: 600; color: var(--clr-text-3); text-transform: uppercase; letter-spacing: .08em; }
-.pbm-metric-value { font-size: 1.45rem; font-weight: 800; color: var(--clr-text-1); letter-spacing: -.025em; margin-top: .12rem; }
+.pbm-metric-label {
+    font-size: .7rem;
+    font-weight: 600;
+    color: var(--clr-text-3);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+.pbm-metric-value {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--clr-text-1);
+    letter-spacing: -.025em;
+    margin-top: .12rem;
+}
+
+/* ═══════════════════════════════════════════════════
+   BALANCE BADGE  (sidebar)
+   ═══════════════════════════════════════════════════ */
 .pbm-balance {
     background: linear-gradient(135deg, rgba(99,91,255,.18), rgba(124,58,237,.18));
-    border: 1px solid rgba(99,91,255,.3); border-radius: var(--radius-lg);
-    padding: 1rem 1.2rem; text-align: center; margin: .35rem 0 .5rem;
-    position: relative; overflow: hidden; transition: box-shadow .3s var(--ease);
+    border: 1px solid rgba(99,91,255,.3);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.2rem;
+    text-align: center;
+    margin: .35rem 0 .5rem;
+    position: relative; overflow: hidden;
+    transition: box-shadow .3s var(--ease);
 }
-.pbm-balance:hover { box-shadow: 0 0 24px rgba(99,91,255,.2); }
-.pbm-balance-label { font-size: .7rem; font-weight: 600; color: var(--clr-text-3); text-transform: uppercase; letter-spacing: .08em; }
-.pbm-balance-value { font-size: 1.7rem; font-weight: 800; color: var(--clr-text-1); letter-spacing: -.03em; margin-top: .1rem; }
+.pbm-balance:hover {
+    box-shadow: 0 0 24px rgba(99,91,255,.2);
+}
+.pbm-balance-label {
+    font-size: .7rem; font-weight: 600;
+    color: var(--clr-text-3);
+    text-transform: uppercase; letter-spacing: .08em;
+}
+.pbm-balance-value {
+    font-size: 1.7rem; font-weight: 800;
+    color: var(--clr-text-1); letter-spacing: -.03em;
+    margin-top: .1rem;
+}
 .pbm-balance::after {
-    content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+    content: '';
+    position: absolute; top: 0; left: -100%;
+    width: 50%; height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent);
     animation: pbmShimmer 3.5s linear infinite;
 }
-.pbm-dash-head { text-align: center; padding: 1.4rem 0 .8rem; }
-.pbm-dash-head h2 { font-size: 1.9rem; font-weight: 800; color: var(--clr-text-1); letter-spacing: -.03em; margin: 0; }
-.pbm-dash-head p { font-size: .88rem; color: var(--clr-text-3); margin: .25rem 0 0; }
+
+/* ═══════════════════════════════════════════════════
+   DASHBOARD HEADER
+   ═══════════════════════════════════════════════════ */
+.pbm-dash-head {
+    text-align: center;
+    padding: 1.4rem 0 .8rem;
+}
+.pbm-dash-head h2 {
+    font-size: 1.9rem; font-weight: 800;
+    color: var(--clr-text-1); letter-spacing: -.03em; margin: 0;
+}
+.pbm-dash-head p {
+    font-size: .88rem;
+    color: var(--clr-text-3);
+    margin: .25rem 0 0;
+}
+
+/* ═══════════════════════════════════════════════════
+   TABS
+   ═══════════════════════════════════════════════════ */
 .stTabs [data-baseweb="tab-list"] {
-    background: var(--clr-surface) !important; border-radius: var(--radius-md) !important;
-    padding: 4px !important; gap: 3px !important; border: 1px solid var(--clr-border) !important;
+    background: var(--clr-surface) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 4px !important;
+    gap: 3px !important;
+    border: 1px solid var(--clr-border) !important;
 }
 .stTabs [data-baseweb="tab"] {
-    color: var(--clr-text-3) !important; border-radius: var(--radius-sm) !important;
-    padding: .55rem 1.15rem !important; font-weight: 600 !important; font-size: .8rem !important;
-    letter-spacing: .01em !important; background: transparent !important; transition: all .2s var(--ease) !important;
+    color: var(--clr-text-3) !important;
+    border-radius: var(--radius-sm) !important;
+    padding: .55rem 1.15rem !important;
+    font-weight: 600 !important;
+    font-size: .8rem !important;
+    letter-spacing: .01em !important;
+    background: transparent !important;
+    transition: all .2s var(--ease) !important;
 }
-.stTabs [data-baseweb="tab"]:hover { background: var(--clr-surface-h) !important; color: var(--clr-text-2) !important; }
+.stTabs [data-baseweb="tab"]:hover {
+    background: var(--clr-surface-h) !important;
+    color: var(--clr-text-2) !important;
+}
 .stTabs [aria-selected="true"] {
     background: linear-gradient(135deg, var(--clr-accent), var(--clr-accent-2)) !important;
-    color: #fff !important; box-shadow: 0 3px 12px var(--clr-accent-glow) !important;
+    color: #fff !important;
+    box-shadow: 0 3px 12px var(--clr-accent-glow) !important;
 }
+
+/* ═══════════════════════════════════════════════════
+   INPUTS & FORM CONTROLS
+   ═══════════════════════════════════════════════════ */
 .stTextInput > div > div > input,
 .stNumberInput > div > div > input,
 .stTextArea > div > div > textarea,
 .stDateInput > div > div > input {
-    background: var(--clr-surface) !important; border: 1px solid var(--clr-border-h) !important;
-    border-radius: var(--radius-sm) !important; color: var(--clr-text-1) !important;
-    font-size: .88rem !important; transition: all .2s var(--ease) !important;
+    background: var(--clr-surface) !important;
+    border: 1px solid var(--clr-border-h) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--clr-text-1) !important;
+    font-size: .88rem !important;
+    transition: all .2s var(--ease) !important;
 }
 .stTextInput > div > div > input:focus,
 .stNumberInput > div > div > input:focus,
@@ -208,98 +359,262 @@ st.markdown("""
     background: rgba(255,255,255,.08) !important;
 }
 .stTextInput > div > div > input::placeholder,
-.stTextArea > div > div > textarea::placeholder { color: var(--clr-text-3) !important; }
-.stTextInput label, .stNumberInput label, .stTextArea label, .stDateInput label {
-    color: var(--clr-text-2) !important; font-weight: 600 !important;
-    font-size: .74rem !important; letter-spacing: .025em !important; text-transform: uppercase !important;
+.stTextArea > div > div > textarea::placeholder {
+    color: var(--clr-text-3) !important;
 }
+.stTextInput label, .stNumberInput label,
+.stTextArea label, .stDateInput label {
+    color: var(--clr-text-2) !important;
+    font-weight: 600 !important;
+    font-size: .74rem !important;
+    letter-spacing: .025em !important;
+    text-transform: uppercase !important;
+}
+
+/* Selectbox */
 .stSelectbox > div > div {
-    background: var(--clr-surface) !important; border: 1px solid var(--clr-border-h) !important;
-    border-radius: var(--radius-sm) !important; color: var(--clr-text-1) !important; transition: border-color .2s !important;
+    background: var(--clr-surface) !important;
+    border: 1px solid var(--clr-border-h) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--clr-text-1) !important;
+    transition: border-color .2s !important;
 }
 .stSelectbox > div > div:hover { border-color: var(--clr-accent) !important; }
 .stSelectbox label {
-    color: var(--clr-text-2) !important; font-weight: 600 !important;
-    font-size: .74rem !important; letter-spacing: .025em !important; text-transform: uppercase !important;
+    color: var(--clr-text-2) !important;
+    font-weight: 600 !important;
+    font-size: .74rem !important;
+    letter-spacing: .025em !important;
+    text-transform: uppercase !important;
 }
+
+/* ═══════════════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════════════ */
 .stButton > button {
     background: linear-gradient(135deg, var(--clr-accent), var(--clr-accent-2)) !important;
-    color: #fff !important; border: none !important; border-radius: var(--radius-md) !important;
-    font-weight: 700 !important; font-size: .82rem !important; letter-spacing: .02em !important;
-    box-shadow: 0 3px 14px var(--clr-accent-glow) !important; transition: all .2s var(--ease) !important; cursor: pointer;
+    color: #fff !important;
+    border: none !important;
+    border-radius: var(--radius-md) !important;
+    font-weight: 700 !important;
+    font-size: .82rem !important;
+    letter-spacing: .02em !important;
+    box-shadow: 0 3px 14px var(--clr-accent-glow) !important;
+    transition: all .2s var(--ease) !important;
+    cursor: pointer;
 }
-.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 22px var(--clr-accent-glow) !important; }
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 22px var(--clr-accent-glow) !important;
+}
 .stButton > button:active { transform: translateY(0) scale(.96); }
+
+/* ═══════════════════════════════════════════════════
+   FILE UPLOADER
+   ═══════════════════════════════════════════════════ */
 [data-testid="stFileUploader"] {
-    background: var(--clr-surface) !important; border: 2px dashed var(--clr-border-h) !important;
-    border-radius: var(--radius-lg) !important; transition: all .28s var(--ease) !important;
+    background: var(--clr-surface) !important;
+    border: 2px dashed var(--clr-border-h) !important;
+    border-radius: var(--radius-lg) !important;
+    transition: all .28s var(--ease) !important;
 }
 [data-testid="stFileUploader"]:hover {
-    border-color: var(--clr-accent) !important; background: rgba(99,91,255,.06) !important;
+    border-color: var(--clr-accent) !important;
+    background: rgba(99,91,255,.06) !important;
     box-shadow: 0 0 20px rgba(99,91,255,.08);
 }
 [data-testid="stFileUploader"] * { color: var(--clr-text-2) !important; }
-.stDataFrame { border-radius: var(--radius-md) !important; overflow: hidden !important; border: 1px solid var(--clr-border) !important; }
-.stSuccess { background: rgba(16,212,138,.1) !important; border-left: 3px solid var(--clr-income) !important; border-radius: var(--radius-sm) !important; }
-.stError { background: rgba(255,92,107,.1) !important; border-left: 3px solid var(--clr-expense) !important; border-radius: var(--radius-sm) !important; }
-.stWarning { background: rgba(245,158,11,.1) !important; border-left: 3px solid #f59e0b !important; border-radius: var(--radius-sm) !important; }
-.stInfo { background: rgba(99,91,255,.08) !important; border-left: 3px solid var(--clr-accent) !important; border-radius: var(--radius-sm) !important; }
+
+/* ═══════════════════════════════════════════════════
+   DATAFRAME  (transaction table)
+   ═══════════════════════════════════════════════════ */
+.stDataFrame {
+    border-radius: var(--radius-md) !important;
+    overflow: hidden !important;
+    border: 1px solid var(--clr-border) !important;
+}
+
+/* ═══════════════════════════════════════════════════
+   ALERT BANNERS
+   ═══════════════════════════════════════════════════ */
+.stSuccess {
+    background: rgba(16,212,138,.1) !important;
+    border-left: 3px solid var(--clr-income) !important;
+    border-radius: var(--radius-sm) !important;
+}
+.stError {
+    background: rgba(255,92,107,.1) !important;
+    border-left: 3px solid var(--clr-expense) !important;
+    border-radius: var(--radius-sm) !important;
+}
+.stWarning {
+    background: rgba(245,158,11,.1) !important;
+    border-left: 3px solid #f59e0b !important;
+    border-radius: var(--radius-sm) !important;
+}
+.stInfo {
+    background: rgba(99,91,255,.08) !important;
+    border-left: 3px solid var(--clr-accent) !important;
+    border-radius: var(--radius-sm) !important;
+}
 .stSuccess *, .stError *, .stWarning *, .stInfo * { color: var(--clr-text-1) !important; }
+
+/* ═══════════════════════════════════════════════════
+   TRANSACTION ROW  (CSV preview)
+   ═══════════════════════════════════════════════════ */
 .pbm-txn-row {
-    background: var(--clr-surface); border: 1px solid var(--clr-border);
-    border-radius: var(--radius-sm); padding: .5rem .75rem; margin-bottom: .3rem; transition: all .18s var(--ease);
+    background: var(--clr-surface);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius-sm);
+    padding: .5rem .75rem;
+    margin-bottom: .3rem;
+    transition: all .18s var(--ease);
 }
 .pbm-txn-row:hover {
-    background: var(--clr-surface-h); transform: translateX(3px);
-    border-color: rgba(99,91,255,.28); box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    background: var(--clr-surface-h);
+    transform: translateX(3px);
+    border-color: rgba(99,91,255,.28);
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
 }
+
+/* ═══════════════════════════════════════════════════
+   CHART WRAPPER  (.pbm-chart-wrap)
+   ═══════════════════════════════════════════════════ */
 .pbm-chart-wrap {
-    background: var(--clr-surface); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--clr-border); border-radius: var(--radius-lg);
-    padding: 1.4rem 1.2rem 1rem; margin-top: .5rem; box-shadow: 0 4px 20px rgba(0,0,0,.18);
-    animation: pbmFadeUp .45s var(--ease) .08s backwards; transition: border-color .3s var(--ease);
+    background: var(--clr-surface);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius-lg);
+    padding: 1.4rem 1.2rem 1rem;
+    margin-top: .5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,.18);
+    animation: pbmFadeUp .45s var(--ease) .08s backwards;
+    transition: border-color .3s var(--ease);
 }
 .pbm-chart-wrap:hover { border-color: var(--clr-border-h); }
 .pbm-chart-title {
-    font-size: .72rem; font-weight: 700; color: var(--clr-text-3);
-    text-transform: uppercase; letter-spacing: .1em; margin-bottom: .6rem;
-    display: flex; align-items: center; gap: .5rem;
+    font-size: .72rem;
+    font-weight: 700;
+    color: var(--clr-text-3);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-bottom: .6rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
 }
 .pbm-chart-title .pbm-chart-dot {
-    width: 7px; height: 7px; border-radius: 50%;
+    width: 7px; height: 7px;
+    border-radius: 50%;
     background: linear-gradient(135deg, var(--clr-accent), #00d4ff);
     box-shadow: 0 0 6px var(--clr-accent-glow);
 }
+
+/* ═══════════════════════════════════════════════════
+   STAT PILL
+   ═══════════════════════════════════════════════════ */
 .pbm-stat-pill {
-    background: var(--clr-surface); border: 1px solid var(--clr-border);
-    border-radius: var(--radius-md); padding: .8rem 1rem; text-align: center; transition: all .22s var(--ease);
+    background: var(--clr-surface);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius-md);
+    padding: .8rem 1rem;
+    text-align: center;
+    transition: all .22s var(--ease);
 }
-.pbm-stat-pill:hover { background: var(--clr-surface-h); transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,.22); }
-.pbm-stat-pill .pbm-stat-val { font-size: 1.25rem; font-weight: 800; color: var(--clr-text-1); letter-spacing: -.02em; }
-.pbm-stat-pill .pbm-stat-label { font-size: .68rem; font-weight: 600; color: var(--clr-text-3); text-transform: uppercase; letter-spacing: .07em; margin-top: .15rem; }
-.pbm-stat-pill.pbm-stat--income  .pbm-stat-val { color: var(--clr-income); }
+.pbm-stat-pill:hover {
+    background: var(--clr-surface-h);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.22);
+}
+.pbm-stat-pill .pbm-stat-val {
+    font-size: 1.25rem; font-weight: 800;
+    color: var(--clr-text-1); letter-spacing: -.02em;
+}
+.pbm-stat-pill .pbm-stat-label {
+    font-size: .68rem; font-weight: 600;
+    color: var(--clr-text-3);
+    text-transform: uppercase; letter-spacing: .07em;
+    margin-top: .15rem;
+}
+.pbm-stat-pill.pbm-stat--income  .pbm-stat-val { color: var(--clr-income);  }
 .pbm-stat-pill.pbm-stat--expense .pbm-stat-val { color: var(--clr-expense); }
 .pbm-stat-pill.pbm-stat--balance .pbm-stat-val { color: #60a5fa; }
-.pbm-col-head { font-size: .68rem; font-weight: 700; color: var(--clr-text-3); text-transform: uppercase; letter-spacing: .07em; }
+
+/* ═══════════════════════════════════════════════════
+   COLUMN HEADERS  (CSV preview)
+   ═══════════════════════════════════════════════════ */
+.pbm-col-head {
+    font-size: .68rem; font-weight: 700;
+    color: var(--clr-text-3);
+    text-transform: uppercase; letter-spacing: .07em;
+}
+
+/* ═══════════════════════════════════════════════════
+   CHATBOT MESSAGE BUBBLES
+   ═══════════════════════════════════════════════════ */
 .pbm-chat-msg {
-    background: var(--clr-surface); border: 1px solid var(--clr-border);
-    border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: .75rem; animation: pbmFadeUp .3s var(--ease);
+    background: var(--clr-surface);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+    margin-bottom: .75rem;
+    animation: pbmFadeUp .3s var(--ease);
 }
 .pbm-chat-msg.user {
     background: linear-gradient(135deg, rgba(99,91,255,.15), rgba(124,58,237,.15));
-    border-color: rgba(99,91,255,.3); margin-left: 2rem;
+    border-color: rgba(99,91,255,.3);
+    margin-left: 2rem;
 }
-.pbm-chat-msg.assistant { background: var(--clr-surface); border-color: var(--clr-border-h); margin-right: 2rem; }
-.pbm-chat-msg-header { font-size: .7rem; font-weight: 700; color: var(--clr-text-3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .5rem; }
-.pbm-chat-msg-content { font-size: .9rem; color: var(--clr-text-1); line-height: 1.6; }
+.pbm-chat-msg.assistant {
+    background: var(--clr-surface);
+    border-color: var(--clr-border-h);
+    margin-right: 2rem;
+}
+.pbm-chat-msg-header {
+    font-size: .7rem; font-weight: 700;
+    color: var(--clr-text-3);
+    text-transform: uppercase; letter-spacing: .08em;
+    margin-bottom: .5rem;
+}
+.pbm-chat-msg-content {
+    font-size: .9rem; color: var(--clr-text-1); line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════════
+   GENERIC TEXT
+   ═══════════════════════════════════════════════════ */
 .main p, .main span, .main small { color: var(--clr-text-2); }
-.main h1, .main h2, .main h3 { color: var(--clr-text-1); }
-.main .stMarkdown { color: var(--clr-text-2); }
-.pbm-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--clr-border), transparent); margin: 1rem 0; border: none; }
-@keyframes pbmFadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes pbmFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-@keyframes pbmGrowLine { from { width: 0; opacity: 0; } to { width: 36px; opacity: 1; } }
-@keyframes pbmShimmer { to { left: 240%; } }
+.main h1, .main h2, .main h3     { color: var(--clr-text-1); }
+.main .stMarkdown                 { color: var(--clr-text-2); }
+
+/* ═══════════════════════════════════════════════════
+   DIVIDER
+   ═══════════════════════════════════════════════════ */
+.pbm-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--clr-border), transparent);
+    margin: 1rem 0; border: none;
+}
+
+/* ═══════════════════════════════════════════════════
+   KEYFRAMES
+   ═══════════════════════════════════════════════════ */
+@keyframes pbmFadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes pbmFloat {
+    0%,100% { transform: translateY(0);    }
+    50%     { transform: translateY(-8px); }
+}
+@keyframes pbmGrowLine {
+    from { width: 0; opacity: 0; }
+    to   { width: 36px; opacity: 1; }
+}
+@keyframes pbmShimmer {
+    to { left: 240%; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -311,37 +626,32 @@ init_db()
 
 
 # ═══════════════════════════════════════════════════════════
-#  SESSION STATE DEFAULTS  — must come before _handle_url_auth
+#  AUTH HANDLER  — reads ?action=, ?user=, ?pw= from React
 # ═══════════════════════════════════════════════════════════
-if "logged_in"        not in st.session_state: st.session_state.logged_in    = False
-if "user_id"          not in st.session_state: st.session_state.user_id      = None
-if "username"         not in st.session_state: st.session_state.username     = None
-if "chat_history"     not in st.session_state: st.session_state.chat_history = []
+def _sha256(plain: str) -> str:
+    return hashlib.sha256(plain.encode()).hexdigest()
 
 
-# ═══════════════════════════════════════════════════════════
-#  AUTH HANDLER
-#  Reads ?action=, ?user=, ?pw= sent by LoginPage (localhost:8081)
-# ═══════════════════════════════════════════════════════════
 def _handle_url_auth():
-    # Already logged in — nothing to do
+
     if st.session_state.get("logged_in", False):
         return
 
-    params   = st.query_params
-    action   = params.get("action")
+    params = st.query_params
+
+    action = params.get("action")
     username = params.get("user")
-    pw_hash  = params.get("pw")
+    pw_hash = params.get("pw")
 
     if not action or not username or not pw_hash:
         return
 
-    # Clear params from URL immediately
-    st.query_params.clear()
-
     db = SessionLocal()
+
     try:
+
         if action == "login":
+
             user = db.query(User).filter(
                 User.username == username,
                 User.password == pw_hash
@@ -351,36 +661,44 @@ def _handle_url_auth():
                 st.error("Incorrect username or password.")
                 return
 
+            # LOGIN SUCCESS
             st.session_state.logged_in = True
-            st.session_state.user_id   = user.id
-            st.session_state.username  = user.username
+            st.session_state.user_id = user.id
+            st.session_state.username = user.username
+
+            # NOW clear params
+            st.query_params.clear()
+
             st.rerun()
 
         elif action == "register":
+
             existing = db.query(User).filter(User.username == username).first()
+
             if existing:
-                st.error("Username already exists. Please choose another.")
+                st.error("Username already exists.")
                 return
 
             new_user = User(username=username, password=pw_hash)
             db.add(new_user)
             db.commit()
 
-            # Redirect back to login page (8081) after 2 seconds
-            st.markdown(
-                '<meta http-equiv="refresh" content="2;url=http://localhost:8081" />',
-                unsafe_allow_html=True
-            )
-            st.success("✅ Account created! Redirecting you to sign in...")
+            st.success("Account created. Please login.")
             st.stop()
 
-    except Exception as e:
-        db.rollback()
-        st.error(f"Auth error: {e}")
     finally:
         db.close()
 
 
+# ─────────────────────────────────────────────────
+# SESSION STATE DEFAULTS
+# ─────────────────────────────────────────────────
+if "logged_in"    not in st.session_state: st.session_state.logged_in    = False
+if "user_id"      not in st.session_state: st.session_state.user_id      = None
+if "username"     not in st.session_state: st.session_state.username      = None
+if "chat_history" not in st.session_state: st.session_state.chat_history  = []
+
+# ── Run URL auth before anything else renders ────
 _handle_url_auth()
 
 
@@ -393,10 +711,11 @@ EXPENSE_CATEGORIES = ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment',
 
 
 # ═══════════════════════════════════════════════════════════
-#  MAIN APP
+#  MAIN APP  (only reached when logged in)
 # ═══════════════════════════════════════════════════════════
 def main_app():
 
+    # ─── SIDEBAR ────────────────────────────────────────────
     with st.sidebar:
         summary = get_transaction_summary(st.session_state.user_id)
         bal     = summary['balance']
@@ -428,13 +747,14 @@ def main_app():
             st.session_state.logged_in = False
             st.session_state.user_id   = None
             st.session_state.username  = None
-            # Redirect to landing page (5173)
+            # Redirect back to React landing page
             st.markdown(
-                '<meta http-equiv="refresh" content="0;url=http://localhost:5173" />',
+                '<meta http-equiv="refresh" content="0;url=http://localhost:8080" />',
                 unsafe_allow_html=True
             )
             st.stop()
 
+    # ─── DASHBOARD HEADER ───────────────────────────────────
     st.markdown(f"""
         <div class="pbm-dash-head">
             <h2>Dashboard</h2>
@@ -442,6 +762,7 @@ def main_app():
         </div>
     """, unsafe_allow_html=True)
 
+    # ─── TABS ───────────────────────────────────────────────
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "➕ Add Transaction", "📁 Upload Files",
         "📊 Analytics",       "📜 History",
@@ -502,6 +823,7 @@ def main_app():
         if uploaded is not None:
             ftype = uploaded.name.split('.')[-1].lower()
 
+            # ──── CSV ────
             if ftype == 'csv':
                 df = parse_csv(uploaded)
                 if df is not None:
@@ -620,6 +942,7 @@ def main_app():
                     st.error("Failed to parse CSV.")
                     st.info("Expected columns: date, amount, description")
 
+            # ──── PDF ────
             elif ftype == 'pdf':
                 with st.spinner("🔍 Extracting transactions…"):
                     transactions = parse_pdf(uploaded, max_transactions=20)
@@ -642,9 +965,9 @@ def main_app():
                         with c1:
                             pdf_type = st.selectbox("💼 Type for All", ["Income","Expense"], key="pdf_type")
                         with c2:
-                            pdf_cat = st.selectbox("🏷️ Category for All",
-                                                   INCOME_CATEGORIES if pdf_type=="Income" else EXPENSE_CATEGORIES,
-                                                   key="pdf_cat")
+                            pdf_cat  = st.selectbox("🏷️ Category for All",
+                                                    INCOME_CATEGORIES if pdf_type=="Income" else EXPENSE_CATEGORIES,
+                                                    key="pdf_cat")
 
                         if st.button("💾 Import All Transactions", key="save_pdf", use_container_width=True):
                             to_add = [{'date': t['date'], 'amount': t['amount'],
@@ -814,15 +1137,15 @@ def main_app():
             qcol1, qcol2, qcol3 = st.columns(3)
             with qcol1:
                 if st.button("💸 Top expenses?", use_container_width=True):
-                    user_input  = "What are my top expense categories?"
+                    user_input = "What are my top expense categories?"
                     send_button = True
             with qcol2:
                 if st.button("💡 Saving tips?", use_container_width=True):
-                    user_input  = "How can I save more money?"
+                    user_input = "How can I save more money?"
                     send_button = True
             with qcol3:
                 if st.button("📊 Financial health?", use_container_width=True):
-                    user_input  = "How is my overall financial health?"
+                    user_input = "How is my overall financial health?"
                     send_button = True
 
             if send_button and user_input:
@@ -847,6 +1170,8 @@ def main_app():
 # ENTRY POINT
 # ─────────────────────────────────────────────────
 def main():
+    # If the URL auth handler already set a valid user, go straight to the app.
+    # Otherwise show an access-denied message (login happens on the React page).
     if st.session_state.get("logged_in") and st.session_state.get("user_id"):
         main_app()
     else:
@@ -854,10 +1179,10 @@ def main():
             <div class="pbm-hero">
                 <div class="pbm-hero-icon">💰</div>
                 <div class="pbm-hero-title">TracSy</div>
-                <div class="pbm-hero-sub">Please log in from the TracSy login page.</div>
+                <div class="pbm-hero-sub">Please log in from the TracSy landing page.</div>
             </div>
         """, unsafe_allow_html=True)
-        st.info("👉 Visit the TracSy login page to sign in or create an account.")
+        st.info("👉 Visit the TracSy landing page to sign in or create an account.")
 
 
 if __name__ == "__main__":
