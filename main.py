@@ -17,8 +17,7 @@ from charts import create_expense_pie_chart, create_income_expense_bar_chart, cr
 from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_pdf_transactions
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
 
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+
 # ─────────────────────────────────────────────────
 # PAGE CONFIG  (must be first Streamlit call)
 # ─────────────────────────────────────────────────
@@ -631,7 +630,8 @@ init_db()
 def _sha256(plain: str) -> str:
     return hashlib.sha256(plain.encode()).hexdigest()
 
-
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 def _handle_url_auth():
     # Prevent redirect loop
     if st.session_state.get("logged_in", False):
