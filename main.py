@@ -1,39 +1,25 @@
 """
-main.py  —  Personal Budget Monitor
+main.py  —  Personal Budget Monitor (TracSy)
 Premium UI with glassmorphism, animations, micro-interactions.
-Every CSS rule is scoped; no raw open/close div pairs split across st calls.
+Auth handler integrated: reads ?action=, ?user=, ?pw= from React landing page.
 """
 
 import streamlit as st
+import hashlib
 from datetime import date
 import pandas as pd
 
-from database import init_db
+from database import init_db, SessionLocal, User
 from auth import register_user, login_user
 from crud import (add_transaction, get_all_transactions, get_total_by_type,
                   get_expense_by_category, get_transaction_summary, bulk_add_transactions)
 from charts import create_expense_pie_chart, create_income_expense_bar_chart, create_summary_chart
 from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_pdf_transactions
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
-from database import SessionLocal, User
 
 
-
-st.markdown("""
-    <style>
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    </style>
-""", unsafe_allow_html=True)
-
-st.set_page_config(
-    page_title="Tracsy - Personal Budget Monitor",
-    page_icon="💰",
-    layout="wide"
-)
-
-
-
+# ─────────────────────────────────────────────────
+# PAGE CONFIG  (must be first Streamlit call)
 # ─────────────────────────────────────────────────
 st.set_page_config(
     page_title="Personal Budget Monitor",
@@ -41,6 +27,13 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+st.markdown("""
+    <style>
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════
 #  CSS
@@ -82,7 +75,6 @@ st.markdown("""
     min-height: 100vh;
     position: relative;
 }
-/* Ambient gradient orbs */
 .stApp::before {
     content: '';
     position: fixed; inset: 0;
@@ -288,7 +280,6 @@ st.markdown("""
     color: var(--clr-text-1); letter-spacing: -.03em;
     margin-top: .1rem;
 }
-/* Shimmer sweep */
 .pbm-balance::after {
     content: '';
     position: absolute; top: 0; left: -100%;
@@ -500,9 +491,7 @@ st.markdown("""
     animation: pbmFadeUp .45s var(--ease) .08s backwards;
     transition: border-color .3s var(--ease);
 }
-.pbm-chart-wrap:hover {
-    border-color: var(--clr-border-h);
-}
+.pbm-chart-wrap:hover { border-color: var(--clr-border-h); }
 .pbm-chart-title {
     font-size: .72rem;
     font-weight: 700;
@@ -522,19 +511,7 @@ st.markdown("""
 }
 
 /* ═══════════════════════════════════════════════════
-   ANALYTICS GRID  (.pbm-analytics-row)
-   ═══════════════════════════════════════════════════ */
-.pbm-analytics-row {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-.pbm-analytics-row > * {
-    flex: 1;
-}
-
-/* ═══════════════════════════════════════════════════
-   STAT PILL  (quick analytics summary)
+   STAT PILL
    ═══════════════════════════════════════════════════ */
 .pbm-stat-pill {
     background: var(--clr-surface);
@@ -550,32 +527,26 @@ st.markdown("""
     box-shadow: 0 4px 14px rgba(0,0,0,.22);
 }
 .pbm-stat-pill .pbm-stat-val {
-    font-size: 1.25rem;
-    font-weight: 800;
-    color: var(--clr-text-1);
-    letter-spacing: -.02em;
+    font-size: 1.25rem; font-weight: 800;
+    color: var(--clr-text-1); letter-spacing: -.02em;
 }
 .pbm-stat-pill .pbm-stat-label {
-    font-size: .68rem;
-    font-weight: 600;
+    font-size: .68rem; font-weight: 600;
     color: var(--clr-text-3);
-    text-transform: uppercase;
-    letter-spacing: .07em;
+    text-transform: uppercase; letter-spacing: .07em;
     margin-top: .15rem;
 }
-.pbm-stat-pill.pbm-stat--income .pbm-stat-val { color: var(--clr-income); }
+.pbm-stat-pill.pbm-stat--income  .pbm-stat-val { color: var(--clr-income);  }
 .pbm-stat-pill.pbm-stat--expense .pbm-stat-val { color: var(--clr-expense); }
 .pbm-stat-pill.pbm-stat--balance .pbm-stat-val { color: #60a5fa; }
 
 /* ═══════════════════════════════════════════════════
-   COLUMN HEADERS  (CSV preview table)
+   COLUMN HEADERS  (CSV preview)
    ═══════════════════════════════════════════════════ */
 .pbm-col-head {
-    font-size: .68rem;
-    font-weight: 700;
+    font-size: .68rem; font-weight: 700;
     color: var(--clr-text-3);
-    text-transform: uppercase;
-    letter-spacing: .07em;
+    text-transform: uppercase; letter-spacing: .07em;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -600,34 +571,29 @@ st.markdown("""
     margin-right: 2rem;
 }
 .pbm-chat-msg-header {
-    font-size: .7rem;
-    font-weight: 700;
+    font-size: .7rem; font-weight: 700;
     color: var(--clr-text-3);
-    text-transform: uppercase;
-    letter-spacing: .08em;
+    text-transform: uppercase; letter-spacing: .08em;
     margin-bottom: .5rem;
 }
 .pbm-chat-msg-content {
-    font-size: .9rem;
-    color: var(--clr-text-1);
-    line-height: 1.6;
+    font-size: .9rem; color: var(--clr-text-1); line-height: 1.6;
 }
 
 /* ═══════════════════════════════════════════════════
-   GENERIC TEXT ON DARK BG
+   GENERIC TEXT
    ═══════════════════════════════════════════════════ */
 .main p, .main span, .main small { color: var(--clr-text-2); }
 .main h1, .main h2, .main h3     { color: var(--clr-text-1); }
 .main .stMarkdown                 { color: var(--clr-text-2); }
 
 /* ═══════════════════════════════════════════════════
-   DIVIDER  (.pbm-divider)
+   DIVIDER
    ═══════════════════════════════════════════════════ */
 .pbm-divider {
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--clr-border), transparent);
-    margin: 1rem 0;
-    border: none;
+    margin: 1rem 0; border: none;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -638,8 +604,8 @@ st.markdown("""
     to   { opacity: 1; transform: translateY(0);    }
 }
 @keyframes pbmFloat {
-    0%,100% { transform: translateY(0);     }
-    50%     { transform: translateY(-8px);  }
+    0%,100% { transform: translateY(0);    }
+    50%     { transform: translateY(-8px); }
 }
 @keyframes pbmGrowLine {
     from { width: 0; opacity: 0; }
@@ -653,52 +619,96 @@ st.markdown("""
 
 
 # ─────────────────────────────────────────────────
-# INIT
+# DB INIT
 # ─────────────────────────────────────────────────
 init_db()
-# Get username from URL
-params = st.query_params
-
-if "user" in params:
-    username = params["user"]  # 👈 IMPORTANT: Take first value
-
-    db = SessionLocal()
-
-    user = db.query(User).filter(User.username == username).first()
-
-    if not user:
-        user = User(username=username, password="123")
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    st.session_state.user_id = user.id
-    st.session_state.username = username
-
-    db.close()
-
-
-if 'logged_in'  not in st.session_state: st.session_state.logged_in  = False
-if 'user_id'    not in st.session_state: st.session_state.user_id    = None
-if 'username'   not in st.session_state: st.session_state.username   = None
-if 'chat_history' not in st.session_state: st.session_state.chat_history = []
-
-INCOME_CATEGORIES  = ['Salary','Freelance','Investment','Gift','Other']
-EXPENSE_CATEGORIES = ['Food','Transport','Shopping','Bills','Entertainment',
-                      'Healthcare','Education','Other']
-
-from database import SessionLocal, User
-
-db = SessionLocal()
-if not db.query(User).filter(User.id == 1).first():
-    new_user = User(username="default_user", password="123")
-    db.add(new_user)
-    db.commit()
-db.close()
 
 
 # ═══════════════════════════════════════════════════════════
-#  MAIN APP
+#  AUTH HANDLER  — reads ?action=, ?user=, ?pw= from React
+# ═══════════════════════════════════════════════════════════
+def _sha256(plain: str) -> str:
+    return hashlib.sha256(plain.encode()).hexdigest()
+
+
+def _handle_url_auth():
+    """
+    Called once at startup. Reads query params sent by the React landing page
+    and either logs the user in or registers + logs them in.
+    Clears the params from the URL immediately after reading.
+    """
+    params = st.query_params
+    action   = params.get("action", "").strip()
+    username = params.get("user",   "").strip()
+    pw_hash  = params.get("pw",     "").strip()
+
+    # Nothing to do — direct visit or already logged in via session
+    if not action or not username or not pw_hash:
+        return
+
+    # Remove credentials from the URL right away
+    st.query_params.clear()
+
+    db = SessionLocal()
+    try:
+        if action == "register":
+            existing = db.query(User).filter(User.username == username).first()
+            if existing:
+                st.error(f"Username '{username}' is already taken. Please choose another.")
+                return
+            new_user = User(username=username, password=pw_hash)
+            db.add(new_user)
+            db.commit()
+            # ── Account created — send user back to React login page ──
+            # Do NOT log them in automatically; they must sign in manually.
+            st.markdown(
+                '<meta http-equiv="refresh" content="2;url=http://localhost:8080" />',
+                unsafe_allow_html=True
+            )
+            st.success(f"✅ Account created for **{username}**! Redirecting you to sign in…")
+            st.stop()
+
+        elif action == "login":
+            user = db.query(User).filter(
+                User.username == username,
+                User.password == pw_hash
+            ).first()
+            if not user:
+                st.error("Incorrect username or password.")
+                return
+            st.session_state.user_id   = user.id
+            st.session_state.username  = user.username
+            st.session_state.logged_in = True
+
+    except Exception as e:
+        db.rollback()
+        st.error(f"Auth error: {e}")
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────────
+# SESSION STATE DEFAULTS
+# ─────────────────────────────────────────────────
+if "logged_in"    not in st.session_state: st.session_state.logged_in    = False
+if "user_id"      not in st.session_state: st.session_state.user_id      = None
+if "username"     not in st.session_state: st.session_state.username      = None
+if "chat_history" not in st.session_state: st.session_state.chat_history  = []
+
+# ── Run URL auth before anything else renders ────
+_handle_url_auth()
+
+
+# ─────────────────────────────────────────────────
+# CONSTANTS
+# ─────────────────────────────────────────────────
+INCOME_CATEGORIES  = ['Salary', 'Freelance', 'Investment', 'Gift', 'Other']
+EXPENSE_CATEGORIES = ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment',
+                      'Healthcare', 'Education', 'Other']
+
+
+# ═══════════════════════════════════════════════════════════
+#  MAIN APP  (only reached when logged in)
 # ═══════════════════════════════════════════════════════════
 def main_app():
 
@@ -715,7 +725,6 @@ def main_app():
                 <div class="pbm-balance-label">{"📈" if bal >= 0 else "📉"} Balance</div>
                 <div class="pbm-balance-value">₹{bal:,.2f}</div>
             </div>
-
             <div class="pbm-metric">
                 <div class="pbm-metric-label">💰 Total Income</div>
                 <div class="pbm-metric-value">₹{summary['total_income']:,.2f}</div>
@@ -730,29 +739,23 @@ def main_app():
             </div>
             <div class="pbm-divider"></div>
         """, unsafe_allow_html=True)
-        # ✅ Logout button INSIDE sidebar
+
         if st.button("🚪 Logout", use_container_width=True):
-
-            # Reset only login-related session values
             st.session_state.logged_in = False
-            st.session_state.user_id = None
-            st.session_state.username = None
-
-            # Redirect to React login page
+            st.session_state.user_id   = None
+            st.session_state.username  = None
+            # Redirect back to React landing page
             st.markdown(
-                """
-                <meta http-equiv="refresh" content="0;url=http://localhost:8080" />
-                """,
+                '<meta http-equiv="refresh" content="0;url=http://localhost:8080" />',
                 unsafe_allow_html=True
             )
-
             st.stop()
 
     # ─── DASHBOARD HEADER ───────────────────────────────────
     st.markdown(f"""
         <div class="pbm-dash-head">
             <h2>Dashboard</h2>
-            <div>Welcome back , {st.session_state.get('username', 'User')}!!✨</div>
+            <div>Welcome back, {st.session_state.get('username', 'User')}!! ✨</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -778,7 +781,7 @@ def main_app():
 
         col1, col2 = st.columns(2, gap="medium")
         with col1:
-            t_type   = st.selectbox("💼 Transaction Type", ["Income","Expense"])
+            t_type   = st.selectbox("💼 Transaction Type", ["Income", "Expense"])
             category = st.selectbox("🏷️ Category",
                                     INCOME_CATEGORIES if t_type == "Income" else EXPENSE_CATEGORIES)
             amount   = st.number_input("💵 Amount (₹)", min_value=0.01, step=0.01, format="%.2f")
@@ -789,7 +792,8 @@ def main_app():
 
         if st.button("💾 Save Transaction", use_container_width=True):
             if amount > 0:
-                ok, msg = add_transaction(st.session_state.user_id, t_date, amount, category, desc, t_type)
+                ok, msg = add_transaction(st.session_state.user_id, t_date, amount,
+                                          category, desc, t_type)
                 if ok:
                     st.success(msg)
                     st.balloons()
@@ -811,7 +815,7 @@ def main_app():
             </div>
         """, unsafe_allow_html=True)
 
-        uploaded = st.file_uploader("Drop your file here or click to browse", type=['csv','pdf'])
+        uploaded = st.file_uploader("Drop your file here or click to browse", type=['csv', 'pdf'])
 
         if uploaded is not None:
             ftype = uploaded.name.split('.')[-1].lower()
@@ -825,7 +829,6 @@ def main_app():
                         st.success(vmsg)
                         st.info(f"🎉 Found **{len(df)}** transactions in your CSV file")
 
-                        # detection helpers
                         def detect_type(description):
                             d = str(description).lower()
                             inc = ['salary','freelance','income','payment received','credit',
@@ -859,7 +862,6 @@ def main_app():
                                 if any(w in d for w in ['education','school','college','course','book','tuition','fee','study']): return 'Education'
                                 return 'Other'
 
-                        # build / refresh session cache
                         if 'csv_transactions' not in st.session_state:
                             st.session_state.csv_transactions = []
                         if len(st.session_state.csv_transactions) != len(df):
@@ -878,19 +880,16 @@ def main_app():
                         st.markdown('<div class="pbm-divider"></div>', unsafe_allow_html=True)
                         st.markdown("""
                             <div style="margin-bottom:.6rem;">
-                                <span style="font-size:1rem; font-weight:700; color:#fff; letter-spacing:-.01em;">📋 Review & Edit Categories</span>
+                                <span style="font-size:1rem; font-weight:700; color:#fff;">📋 Review & Edit Categories</span>
                             </div>
                         """, unsafe_allow_html=True)
                         st.info("✨ Types and categories auto-detected. Edit any row below.")
 
-                        # column headers
                         hc = st.columns([2, 1.5, 3, 1.8, 2.2])
                         for h, label in zip(hc, ["📅 Date","💵 Amount","📝 Description","💼 Type","🏷️ Category"]):
                             h.markdown(f'<span class="pbm-col-head">{label}</span>', unsafe_allow_html=True)
-
                         st.markdown('<div class="pbm-divider"></div>', unsafe_allow_html=True)
 
-                        # rows
                         for idx, tr in enumerate(st.session_state.csv_transactions[:10]):
                             st.markdown('<div class="pbm-txn-row">', unsafe_allow_html=True)
                             c1,c2,c3,c4,c5 = st.columns([2, 1.5, 3, 1.8, 2.2])
@@ -996,12 +995,11 @@ def main_app():
             </div>
         """, unsafe_allow_html=True)
 
-        t_inc = get_total_by_type(st.session_state.user_id, 'Income')
-        t_exp = get_total_by_type(st.session_state.user_id, 'Expense')
-        e_cat = get_expense_by_category(st.session_state.user_id)
+        t_inc        = get_total_by_type(st.session_state.user_id, 'Income')
+        t_exp        = get_total_by_type(st.session_state.user_id, 'Expense')
+        e_cat        = get_expense_by_category(st.session_state.user_id)
         summary_data = get_transaction_summary(st.session_state.user_id)
 
-        # ── Quick-stat pills ──
         st.markdown(f"""
             <div style="display:flex; gap:.75rem; margin-bottom:1.25rem;">
                 <div class="pbm-stat-pill pbm-stat--income" style="flex:1;">
@@ -1019,9 +1017,7 @@ def main_app():
             </div>
         """, unsafe_allow_html=True)
 
-        # ── Top two charts side by side ──
         c1, c2 = st.columns(2, gap="medium")
-
         with c1:
             st.markdown("""
                 <div class="pbm-chart-wrap">
@@ -1041,7 +1037,6 @@ def main_app():
             """, unsafe_allow_html=True)
             st.pyplot(create_income_expense_bar_chart(t_inc, t_exp))
 
-        # ── Full-width summary chart ──
         st.markdown('<div class="pbm-divider"></div>', unsafe_allow_html=True)
         st.markdown("""
             <div class="pbm-chart-wrap">
@@ -1065,15 +1060,15 @@ def main_app():
 
         transactions = get_all_transactions(st.session_state.user_id)
         if transactions:
-            filt = st.selectbox("🔍 Filter by Type", ["All","Income","Expense"])
+            filt = st.selectbox("🔍 Filter by Type", ["All", "Income", "Expense"])
             rows = []
             for t in transactions:
                 if filt == "All" or t.transaction_type == filt:
                     rows.append({
-                        'Date': t.date.strftime('%Y-%m-%d'),
-                        'Type': t.transaction_type,
-                        'Category': t.category,
-                        'Amount (₹)': f"₹{t.amount:,.2f}",
+                        'Date':        t.date.strftime('%Y-%m-%d'),
+                        'Type':        t.transaction_type,
+                        'Category':    t.category,
+                        'Amount (₹)':  f"₹{t.amount:,.2f}",
                         'Description': t.description if t.description else '—'
                     })
             if rows:
@@ -1097,7 +1092,6 @@ def main_app():
             </div>
         """, unsafe_allow_html=True)
 
-        # Get financial context
         context = get_financial_context(
             st.session_state.user_id,
             get_transaction_summary,
@@ -1107,48 +1101,35 @@ def main_app():
         )
 
         if context is None or context['transaction_count'] == 0:
-            st.info("📊 No transaction data yet. Add some transactions to start chatting with your AI assistant!")
+            st.info("📊 No transaction data yet. Add some transactions to start chatting!")
         else:
-            # Quick insight card
             with st.expander("💡 Quick Insight", expanded=True):
-                insight = get_quick_insight(context)
-                st.markdown(f"**{insight}**")
+                st.markdown(f"**{get_quick_insight(context)}**")
 
             st.markdown('<div class="pbm-divider"></div>', unsafe_allow_html=True)
-
-            # Chat interface
             st.markdown("### 💬 Chat with Your AI Assistant")
-            
-            # Display chat history
-            for msg in st.session_state.chat_history:
-                if msg['role'] == 'user':
-                    st.markdown(f"""
-                        <div class="pbm-chat-msg user">
-                            <div class="pbm-chat-msg-header">👤 You</div>
-                            <div class="pbm-chat-msg-content">{msg['content']}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                        <div class="pbm-chat-msg assistant">
-                            <div class="pbm-chat-msg-header">🤖 AI Assistant</div>
-                            <div class="pbm-chat-msg-content">{msg['content']}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
 
-            # Input area
+            for msg in st.session_state.chat_history:
+                role_class = "user" if msg['role'] == 'user' else "assistant"
+                label      = "👤 You" if msg['role'] == 'user' else "🤖 AI Assistant"
+                st.markdown(f"""
+                    <div class="pbm-chat-msg {role_class}">
+                        <div class="pbm-chat-msg-header">{label}</div>
+                        <div class="pbm-chat-msg-content">{msg['content']}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
             col1, col2 = st.columns([5, 1])
             with col1:
                 user_input = st.text_input(
-                    "Ask me anything about your finances...",
-                    placeholder="e.g., How can I reduce my expenses? What's my spending pattern?",
+                    "Ask me anything…",
+                    placeholder="e.g., How can I reduce my expenses?",
                     key="chat_input",
                     label_visibility="collapsed"
                 )
             with col2:
                 send_button = st.button("Send 📤", use_container_width=True)
 
-            # Quick question buttons
             st.markdown("**Quick Questions:**")
             qcol1, qcol2, qcol3 = st.columns(3)
             with qcol1:
@@ -1164,40 +1145,18 @@ def main_app():
                     user_input = "How is my overall financial health?"
                     send_button = True
 
-            # Process message
             if send_button and user_input:
-                # Add user message to history
-                st.session_state.chat_history.append({
-                    'role': 'user',
-                    'content': user_input
-                })
-
-                # Get AI response
-                with st.spinner("🤔 Thinking..."):
-                    # Prepare conversation history for API
-                    api_history = []
-                    for msg in st.session_state.chat_history[-6:]:  # Last 3 exchanges
-                        api_history.append({
-                            'role': msg['role'],
-                            'content': msg['content']
-                        })
-                    
-                    # Remove the last user message (we'll add it in the function)
-                    api_history = api_history[:-1]
-                    
+                st.session_state.chat_history.append({'role': 'user', 'content': user_input})
+                with st.spinner("🤔 Thinking…"):
+                    api_history = [
+                        {'role': m['role'], 'content': m['content']}
+                        for m in st.session_state.chat_history[-6:]
+                    ][:-1]
                     response = get_chatbot_response(user_input, context, api_history)
-                
-                # Add assistant response to history
-                st.session_state.chat_history.append({
-                    'role': 'assistant',
-                    'content': response
-                })
-
-                # Rerun to display new messages
+                st.session_state.chat_history.append({'role': 'assistant', 'content': response})
                 st.rerun()
 
-            # Clear chat button
-            if len(st.session_state.chat_history) > 0:
+            if st.session_state.chat_history:
                 st.markdown('<div class="pbm-divider"></div>', unsafe_allow_html=True)
                 if st.button("🗑️ Clear Chat History", use_container_width=True):
                     st.session_state.chat_history = []
@@ -1208,21 +1167,20 @@ def main_app():
 # ENTRY POINT
 # ─────────────────────────────────────────────────
 def main():
-    st.session_state.logged_in = True
-    main_app()
+    # If the URL auth handler already set a valid user, go straight to the app.
+    # Otherwise show an access-denied message (login happens on the React page).
+    if st.session_state.get("logged_in") and st.session_state.get("user_id"):
+        main_app()
+    else:
+        st.markdown("""
+            <div class="pbm-hero">
+                <div class="pbm-hero-icon">💰</div>
+                <div class="pbm-hero-title">TracSy</div>
+                <div class="pbm-hero-sub">Please log in from the TracSy landing page.</div>
+            </div>
+        """, unsafe_allow_html=True)
+        st.info("👉 Visit the TracSy landing page to sign in or create an account.")
+
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
