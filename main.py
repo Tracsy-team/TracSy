@@ -17,7 +17,8 @@ from charts import create_expense_pie_chart, create_income_expense_bar_chart, cr
 from file_parser import parse_csv, parse_pdf, validate_csv_structure, validate_pdf_transactions
 from chatbot import get_financial_context, get_chatbot_response, get_quick_insight
 
-
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 # ─────────────────────────────────────────────────
 # PAGE CONFIG  (must be first Streamlit call)
 # ─────────────────────────────────────────────────
@@ -632,6 +633,9 @@ def _sha256(plain: str) -> str:
 
 
 def _handle_url_auth():
+    # Prevent redirect loop
+    if st.session_state.get("logged_in", False):
+        return
     """
     Called once at startup. Reads query params sent by the React landing page
     and either logs the user in or registers + logs them in.
@@ -648,6 +652,7 @@ def _handle_url_auth():
 
     # Remove credentials from the URL right away
     st.query_params.clear()
+    st.rerun()
 
     db = SessionLocal()
     try:
