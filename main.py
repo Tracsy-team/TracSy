@@ -368,7 +368,7 @@ def _handle_url_auth():
             st.session_state.username  = user.username
             st.rerun()
 
-        elif action == "register":
+         elif action == "register":
             existing = db.query(User).filter(User.username == username).first()
             if existing:
                 st.error("Username already exists. Please choose another.")
@@ -377,11 +377,10 @@ def _handle_url_auth():
             new_user_obj = User(username=username, password=pw_hash)
             db.add(new_user_obj)
             db.commit()
-
-            if IS_CLOUD:
-                # On cloud: no localhost to redirect to — just rerun to show login form
-                st.success("✅ Account created! Please sign in below.")
-                st.rerun()
+            # Never redirect to localhost — on cloud it doesn't exist,
+            # on localhost the React page handles its own success state.
+            st.success("✅ Account created! Please sign in.")
+            st.rerun()
             else:
                 # On localhost: redirect back to the React login page after 2 seconds
                 st.markdown(
