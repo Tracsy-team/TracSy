@@ -633,65 +633,59 @@ def _sha256(plain: str) -> str:
 
 
 def _handle_url_auth():
-    # Prevent redirect loop
+
     if st.session_state.get("logged_in", False):
         return
-    """
-    Called once at startup. Reads query params sent by the React landing page
-    and either logs the user in or registers + logs them in.
-    Clears the params from the URL immediately after reading.
-    """
-    params = st.query_params
-    action   = params.get("action", "").strip()
-    username = params.get("user",   "").strip()
-    pw_hash  = params.get("pw",     "").strip()
 
-    # Nothing to do — direct visit or already logged in via session
+    params = st.query_params
+
+    action = params.get("action")
+    username = params.get("user")
+    pw_hash = params.get("pw")
+
     if not action or not username or not pw_hash:
         return
 
-    # Remove credentials from the URL right away
-    st.query_params.clear()
-    st.rerun()
-
     db = SessionLocal()
-    try:
-        if action == "register":
-            existing = db.query(User).filter(User.username == username).first()
-            if existing:
-                st.error(f"Username '{username}' is already taken. Please choose another.")
-                return
-            new_user = User(username=username, password=pw_hash)
-            db.add(new_user)
-            db.commit()
-            # ── Account created — send user back to React login page ──
-            # Do NOT log them in automatically; they must sign in manually.
-            st.markdown(
-                '<meta http-equiv="refresh" content="2;url=http://localhost:8080" />',
-                unsafe_allow_html=True
-            )
-            st.success(f"✅ Account created for **{username}**! Redirecting you to sign in…")
-            st.stop()
 
-        elif action == "login":
+    try:
+
+        if action == "login":
+
             user = db.query(User).filter(
                 User.username == username,
                 User.password == pw_hash
             ).first()
+
             if not user:
                 st.error("Incorrect username or password.")
                 return
-            st.session_state.user_id   = user.id
-            st.session_state.username  = user.username
-            st.session_state.logged_in = True
 
+            # LOGIN SUCCESS
+            st.session_state.logged_in = True
+            st.session_state.user_id = user.id
+            st.session_state.username = user.username
+
+            # NOW clear params
             st.query_params.clear()
-            # Force clean rerun
+
             st.rerun()
 
-    except Exception as e:
-        db.rollback()
-        st.error(f"Auth error: {e}")
+        elif action == "register":
+
+            existing = db.query(User).filter(User.username == username).first()
+
+            if existing:
+                st.error("Username already exists.")
+                return
+
+            new_user = User(username=username, password=pw_hash)
+            db.add(new_user)
+            db.commit()
+
+            st.success("Account created. Please login.")
+            st.stop()
+
     finally:
         db.close()
 
