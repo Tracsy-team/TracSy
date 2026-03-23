@@ -4,7 +4,14 @@ Premium UI with glassmorphism, animations, micro-interactions.
 Auth handler integrated: reads ?action=, ?user=, ?pw= from React login page (localhost:8081).
 Logout redirects to landing page (localhost:5173).
 """
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+#print("KEY:", GROQ_API_KEY)   # temporary test
 import streamlit as st
 import hashlib
 from datetime import date
